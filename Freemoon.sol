@@ -720,6 +720,8 @@ contract Freemoon is Context, IERC20, Ownable {
     bool inSwapAndLiquify;
     bool public swapAndLiquifyEnabled = true;
 
+    bool public convertCharityFeeToBnb = false;
+
     uint256 public _maxTxAmount = 5000000 * 10**6 * 10**9;
     uint256 private numTokensSellToAddToLiquidity = 500000 * 10**6 * 10**9;
 
@@ -907,6 +909,10 @@ contract Freemoon is Context, IERC20, Ownable {
         emit SwapAndLiquifyEnabledUpdated(_enabled);
     }
 
+    function setConvertCharityFeeToBnb(bool _convertCharityFeeToBnb) public onlyOwner {
+        convertCharityFeeToBnb = _convertCharityFeeToBnb;
+    }
+
     //to recieve ETH from uniswapV2Router when swaping
     receive() external payable {}
 
@@ -998,10 +1004,14 @@ contract Freemoon is Context, IERC20, Ownable {
     }
 
     function sendToCharityAddress(uint256 amount) private {
-        uint256 initialBalance = address(this).balance;
-        swapTokensForEth(amount);
-        uint256 newBalance = address(this).balance.sub(initialBalance);
-        charityAddress.transfer(newBalance);
+        if (convertCharityFeeToBnb) {
+            uint256 initialBalance = address(this).balance;
+            swapTokensForEth(amount);
+            uint256 newBalance = address(this).balance.sub(initialBalance);
+            charityAddress.transfer(newBalance);
+        } else {
+            _tokenTransfer(address(this), charityAddress, amount, false);
+        }
     }
 
     function setCharityAddress(address payable newCharityAddress) external onlyOwner() {
@@ -1087,7 +1097,7 @@ contract Freemoon is Context, IERC20, Ownable {
         // add liquidity to uniswap
         addLiquidity(otherHalfOfLiquidity, newBalance);
 
-        // send charity amount to charity address in BNB
+        // send charity amount to charity address
         if (charityAmount > 0) {
             sendToCharityAddress(charityAmount);
         }
